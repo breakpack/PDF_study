@@ -29,7 +29,7 @@ pip install -r requirements.txt
    ```bash
    python app.py --list-models --api-key "$GOOGLE_API_KEY"
    ```
-3. **앱 실행 및 사전 로딩** – CLI에 `[n/total]` 로그가 표시되며 모든 페이지 해설을 준비합니다.
+3. **앱 실행 및 사전 로딩** – CLI에 `[n/total]` 로그가 표시되며 모든 페이지 해설을 준비합니다. PDF 경로를 생략하고 `python app.py`만 실행하면 파일 열기 대화상자에서 직접 선택할 수 있습니다.
    ```bash
    python app.py path/to/file.pdf \
      --model gemini-2.5-flash \

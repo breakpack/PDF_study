@@ -171,6 +171,20 @@ def _resize_image(image: Image.Image, max_pixels: int) -> Image.Image:
     return resized
 
 
+_shared_qt_app: Optional[QtWidgets.QApplication] = None
+
+
+def ensure_qapp() -> QtWidgets.QApplication:
+    global _shared_qt_app
+    if _shared_qt_app is not None:
+        return _shared_qt_app
+    instance = QtWidgets.QApplication.instance()
+    if instance is None:
+        instance = QtWidgets.QApplication([])
+    _shared_qt_app = instance
+    return instance
+
+
 def render_page_image(pdf_path: Path, page_index: int, max_pixels: int) -> Optional[Image.Image]:
     if max_pixels <= 0:
         return None
@@ -626,6 +640,19 @@ def fetch_supported_models(api_key: str) -> List[str]:
     return sorted(models)
 
 
+def pick_pdf_via_dialog() -> Optional[Path]:
+    ensure_qapp()
+    file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+        None,
+        "열고 싶은 PDF 선택",
+        str(Path.cwd()),
+        "PDF Files (*.pdf)"
+    )
+    if not file_path:
+        return None
+    return Path(file_path)
+
+
 def prefetch_summaries(
     pdf_path: Path,
     chapters: List[Chapter],
@@ -692,7 +719,10 @@ def main() -> None:
         return
 
     if not args.pdf:
-        raise SystemExit("PDF 경로를 지정하세요. --list-models 옵션으로 모델을 먼저 확인할 수 있습니다.")
+        selected = pick_pdf_via_dialog()
+        if not selected:
+            raise SystemExit("PDF를 선택하지 않아 종료합니다.")
+        args.pdf = selected
     if not args.pdf.exists():
         raise SystemExit(f"PDF 파일을 찾을 수 없습니다: {args.pdf}")
 
@@ -727,7 +757,7 @@ def main() -> None:
     else:
         print("Gemini 호출 없이 뷰어만 실행합니다.")
 
-    app = QtWidgets.QApplication([])
+    app = ensure_qapp()
     viewer = PDFViewer(
         args.pdf,
         chapters,
