@@ -342,6 +342,7 @@ class PDFViewer(QtWidgets.QMainWindow):
         self.context_chars = context_chars
         self.max_image_pixels = max_image_pixels
         self.thread_pool = QtCore.QThreadPool(self)
+        self.thread_pool.setMaxThreadCount(2)
         self.chapter_requests: set[str] = set()
         self.current_page = 0
         self.current_zoom = 1.0
@@ -553,6 +554,14 @@ class PDFViewer(QtWidgets.QMainWindow):
             self.statusBar().showMessage(f"'{chapter.title}' 해설 불러오는 중...")
         self.thread_pool.start(worker)
 
+    def prefetch_all_summaries(self) -> None:
+        if not self.explainer:
+            return
+        print("[UI] 전체 페이지 해설을 백그라운드에서 준비합니다.")
+        for chapter in self.chapters:
+            if not chapter.summary:
+                self.request_summary(chapter)
+
     def _on_summary_ready(self, chapter_id: str, summary: str) -> None:
         chapter = next((c for c in self.chapters if c.id == chapter_id), None)
         if not chapter:
@@ -652,57 +661,6 @@ def pick_pdf_via_dialog() -> Optional[Path]:
         return None
     return Path(file_path)
 
-
-def prefetch_summaries(
-    pdf_path: Path,
-    chapters: List[Chapter],
-    explainer: GeminiExplainer,
-    max_chars: int,
-    context_chars: int,
-    max_image_pixels: int,
-) -> None:
-    total = len(chapters)
-    if not total:
-        return
-    print(f"총 {total}개의 페이지 해설을 준비합니다.")
-    for idx, chapter in enumerate(chapters):
-        human_idx = idx + 1
-        cached = explainer.get_cached(chapter)
-        if cached:
-            chapter.summary = cached
-            print(f"[{human_idx}/{total}] '{chapter.title}' - 캐시 사용", flush=True)
-            continue
-        prev_chapter = chapters[idx - 1] if idx > 0 else None
-        next_chapter = chapters[idx + 1] if idx + 1 < total else None
-        print(f"[{human_idx}/{total}] '{chapter.title}' - Gemini 요청 중...", flush=True)
-        current_text, prev_text, next_text = extract_contextual_texts(
-            pdf_path,
-            chapter,
-            prev_chapter,
-            next_chapter,
-            max_chars,
-            context_chars,
-        )
-        if not current_text:
-            current_text = FALLBACK_TEXT
-        image = render_page_image(
-            pdf_path,
-            chapter.start_page,
-            max_image_pixels,
-        )
-        images = [image] if image else None
-        summary = explainer.explain(
-            chapter,
-            current_text,
-            previous_text=prev_text,
-            next_text=next_text,
-            images=images,
-        )
-        chapter.summary = summary
-        print(f"[{human_idx}/{total}] '{chapter.title}' - 완료", flush=True)
-    print("모든 페이지 해설 준비가 완료되었습니다.")
-
-
 def main() -> None:
     args = parse_args()
     if args.list_models:
@@ -743,17 +701,7 @@ def main() -> None:
             )
         except ValueError as exc:
             raise SystemExit(str(exc))
-        try:
-            prefetch_summaries(
-                args.pdf,
-                chapters,
-                explainer,
-                args.max_text_chars,
-                args.context_text_chars,
-                args.max_image_pixels,
-            )
-        except Exception as exc:
-            raise SystemExit(f"페이지 해설 준비 중 오류가 발생했습니다: {exc}")
+        print("Gemini 해설을 백그라운드에서 준비합니다. UI는 즉시 표시됩니다.")
     else:
         print("Gemini 호출 없이 뷰어만 실행합니다.")
 
@@ -767,6 +715,8 @@ def main() -> None:
         args.max_image_pixels,
     )
     viewer.show()
+    if explainer:
+        QtCore.QTimer.singleShot(0, viewer.prefetch_all_summaries)
     app.exec()
 
 
