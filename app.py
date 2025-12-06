@@ -9,6 +9,7 @@ from typing import List, Optional
 import fitz  # PyMuPDF
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PIL import Image
+from dotenv import load_dotenv
 
 # google-generativeai가 Python 3.10 미만에서 importlib.metadata.packages_distributions
 # 를 필요로 하기 때문에 백포트 모듈이 있으면 주입한다.
@@ -27,6 +28,9 @@ if not hasattr(_stdlib_metadata, "packages_distributions") and _backport_metadat
         _stdlib_metadata.packages_distributions = _backport_metadata.packages_distributions  # type: ignore[attr-defined]
 
 import google.generativeai as genai
+
+# Load variables like GOOGLE_API_KEY from a local .env file when present.
+load_dotenv()
 
 
 @dataclass

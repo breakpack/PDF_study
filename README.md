@@ -22,6 +22,11 @@ pip install -r requirements.txt
 
 ## 사용 순서
 1. **API 키 설정**
+   프로젝트 루트에 `.env` 파일을 만들고 `GOOGLE_API_KEY` 값을 넣으면 앱이 자동으로 불러옵니다.
+   ```bash
+   echo 'GOOGLE_API_KEY="your-key"' > .env
+   ```
+   또는 일회성으로 셸에서 직접 환경 변수를 설정해도 됩니다.
    ```bash
    export GOOGLE_API_KEY="your-key"
    ```
